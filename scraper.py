@@ -25,11 +25,12 @@ class Archive():
 	def addEntry(self, date, title, link):
 		if date in self.dir:
 			self.dir[date].links[title] = link
+			return False
 		else:
 			new_entry = ArchiveEntry(date)
 			new_entry.links[title] = link
 			self.dir[date] = new_entry
-		pass
+			return True
 
 	def nMonth(self):
 		return (self.day.year-self.journal_start.year)*12+(self.day.month-self.journal_start.month)
@@ -48,7 +49,7 @@ class Archive():
 
 	def compile(self, warnings=False):
 		self.day = dt.date.today()
-		y, m = self.journal_start.year, self.journal_start.month+1
+		y, m = self.journal_start.year, self.journal_start.month
 		tcj_archive = []
 		for i in range(self.nMonth()):
 			tcj_archive.append(f"http://thecollagejournal.blogspot.com/{y}/{m:02d}/")
@@ -76,27 +77,27 @@ class Archive():
 				prev_date = date
 		pass
 
-	def update(self, notifs=False):
+	def update(self, warnings=False):
 		soup = BeautifulSoup(requests.get("http://thecollagejournal.blogspot.com/").text, 'html.parser')
 		self.day = dt.date.today()
+		new_posts = []
 		for post in soup.find_all("div", class_="post hentry"):
 				title = post.find("h3")
 				try:
 					date = self.dateFromTitle(title.contents[1].contents[0])
 				except:
-					if notifs:
+					if warnings:
 						print(f"Warning: unparseable date")
 					continue
 				link = title.a["href"]
-				self.addEntry(date, title.contents[1].contents[0], link)
-				if notifs:
-					print(f"Link of {date} was added to the list")
-		pass
+				if self.addEntry(date, title.contents[1].contents[0], link):
+					new_posts.append(date)
+		return new_posts
 
 	def compilePosts(self):
-		date = dt.date(2020, 4, 4)#self.day
+		date=self.day
 		step = (4 if date.month==2 and date.day==29 else 1)
-		while date>self.journal_start:
+		while date>=self.journal_start:
 			self.posts.append(date)
 			date = date - relativedelta(years=step)
 		pass
@@ -141,3 +142,4 @@ class Archive():
 					post_text = f"{date} (Day {entry.day}) visit @ {link}"
 					yield (date, post_text)
 					os.remove(f"./images/{date}.jpg")
+					yield None
